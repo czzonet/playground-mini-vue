@@ -39,3 +39,13 @@ export const isReadonly = (value: any): boolean =>
   !!value[ReactiveFlags.IS_REACTIVE];
 export const isProxy = (value: any): boolean =>
   isReactive(value) || isReadonly(value);
+
+// TODO: ?
+export const toRaw = (value: any) => {
+  /** 普通对象直接返回 */
+  if (!value[ReactiveFlags.RAW]) {
+    return value;
+  } else {
+    return value[ReactiveFlags.RAW];
+  }
+};

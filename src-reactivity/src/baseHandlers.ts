@@ -11,17 +11,18 @@ import {
   readonlyMap,
   shallowReadonlyMap,
 } from "./const";
+import { track } from "./effect";
+import { reactive, readonly } from "./reactive";
+import { isObject } from "./share";
 
 const createGetter =
   (isReadonly = false, shallow = false) =>
   (target: any, key: ReactiveFlags, receiver: any) => {
-    // TODO:
-    const isExistInReactiveMap = () =>
-      key === ReactiveFlags.RAW && receiver === reactiveMap.get(target);
-    const isExistInReadonlyMap = () =>
-      key === ReactiveFlags.RAW && receiver === readonlyMap.get(target);
-    const isExistInShallowReadonlyMap = () =>
-      key === ReactiveFlags.RAW && receiver === shallowReadonlyMap.get(target);
+    const isRaw = key === ReactiveFlags.RAW;
+    const isExistInReactiveMap = receiver === reactiveMap.get(target);
+    const isExistInReadonlyMap = receiver === readonlyMap.get(target);
+    const isExistInShallowReadonlyMap =
+      receiver === shallowReadonlyMap.get(target);
 
     /** 添加特殊的get属性判断 */
     if (key === ReactiveFlags.IS_REACTIVE) {
@@ -29,18 +30,29 @@ const createGetter =
     } else if (key === ReactiveFlags.IS_READONLY) {
       return isReadonly;
     } else if (
-      isExistInReactiveMap() ||
-      isExistInReadonlyMap() ||
-      isExistInShallowReadonlyMap()
+      isRaw &&
+      (isExistInReactiveMap ||
+        isExistInReadonlyMap ||
+        isExistInShallowReadonlyMap)
     ) {
       return target;
     }
 
     const res = Reflect.get(target, key, receiver);
 
+    if (!isReadonly) {
+      track(target, "get", key);
+    }
+
     if (shallow) {
       return res;
     }
+
+    /** 递归 */
+    if (isObject(res)) {
+      return isReadonly ? readonly(res) : reactive(res);
+    }
+
     return res;
   };
 
